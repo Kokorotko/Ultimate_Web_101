@@ -2,19 +2,38 @@
 session_start();
 require_once("Db.php"); /*database shit*/
 Db::connect('sql5.webzdarma.cz', 'kamilfranekw6956', 'kamilfranekw6956', 'QLlF4@g#5#&kCc%F)$@7');
-if ($_POST)
+if (isset($_POST['g-recaptcha-response']))
 {
-    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-    Db::insert('weather_users', 
-    [
-        'email' => $_POST['email'],
-        'name' => $_POST['name'],
-        'password' => $password
-    ]);
-    $_SESSION['user_id'] = Db::getLastId();
-    header('Location: index.php');
-    exit();
+    $key = '6LdSpwgrAAAAAImqqDv-6HC3_HggMELc6n6CkHa8';
+    $response = $_POST['g-recaptcha-response'];
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $captcha = json_decode(file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret=".$key."&response=".$response."&remoteip=".$ip));
+    if ($captcha->success === true)
+    {
+        if (IsEmailOriginal($_POST['email']))
+        {
+            $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+            Db::insert('weather_users', 
+            [
+                'email' => $_POST['email'],
+                'name' => $_POST['name'],
+                'password' => $password
+            ]);
+            $_SESSION['user_id'] = Db::getLastId();
+            header('Location: index.php');
+        }
+        else echo "There can be only one email";
+    }
+    else echo "Captcha has failed";
 }
+
+    // Check if email exists in the database
+    function IsEmailOriginal($email)
+    {                
+        $getData = Db::query("SELECT COUNT(*) FROM weather_users WHERE email = ?", [$email]);
+        if ($getData[0]['COUNT(*)'] > 0) return false; // If count is greater than 0, email already exists
+        return true;
+    }
 ?>
 
 <!DOCTYPE html>
@@ -22,6 +41,7 @@ if ($_POST)
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <title>Registrace</title>
     <style>
         body {
@@ -96,12 +116,15 @@ if ($_POST)
             <input type="name" id="name" name="name" required>
             <label for="password">Heslo</label>
             <input type="password" id="password" name="password" required>
+            <div class="captcha">
+                <div class="g-recaptcha" data-sitekey="6LdSpwgrAAAAAGj4LEijdRJ0nhH-f4b7VEXsGli8"></div>
+            </div>
             <button type="submit">Registrovat se</button>
         </form>
         <h2>Login</h2>
         <form action="login.php" method="POST">
             <button type="submit">Login</button>
-        </form>    
+        </form>            
     </div>
 </body>
 </html>
